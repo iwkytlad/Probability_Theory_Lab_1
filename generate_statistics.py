@@ -51,12 +51,50 @@ v_y = np.clip(np.random.normal(VY_MEAN, VY_STD, N_SIM), -0.5, 1.0)
 # ==========================================
 # РАСЧЕТ ТРАЕКТОРИИ
 # ==========================================
+# 1. Сначала находим t_max - время, когда ЦМ точно ниже нуля (верхняя граница)
 a_coef, b_coef, c_coef = 0.5 * G, -v_y, Y_CM - y0
 discriminant = b_coef ** 2 - 4 * a_coef * c_coef
-t_flight = (-b_coef + np.sqrt(discriminant)) / (2 * a_coef)
+t_max = (-b_coef + np.sqrt(discriminant)) / (2 * a_coef)
+
+# 2. Бинарный поиск точного времени касания нижней точкой
+t_low = np.zeros(N_SIM)
+t_high = t_max.copy()
+t_hit = t_max / 2  # Начальное приближение
+
+
+# Функция для расчета минимальной Y координаты вершин в момент t
+def get_min_y(t):
+    x_cm = v_x * t
+    y_cm = y0 + v_y * t - 0.5 * G * t ** 2
+    theta = theta_0 + (omega / np.sqrt(INERTIA_K)) * t
+
+    cos_t = np.cos(theta)[:, np.newaxis, np.newaxis]
+    sin_t = np.sin(theta)[:, np.newaxis, np.newaxis]
+    R = np.block([[cos_t, -sin_t], [sin_t, cos_t]])
+
+    # cup_local: (4, 2) -> rotated: (N, 4, 2)
+    rotated = np.einsum('nij,kj->nki', R, cup_local)
+    pts_world_y = rotated[:, :, 1] + y_cm[:, np.newaxis]
+    return np.min(pts_world_y, axis=1)
+
+
+# 20 итераций дают точность ~1e-6 секунды (этого более чем достаточно)
+for _ in range(20):
+    min_y = get_min_y(t_hit)
+    # Если min_y <= 0, значит касание произошло РАНЬШЕ или В этот момент
+    mask_early = min_y <= 0
+    t_high[mask_early] = t_hit[mask_early]
+    t_low[~mask_early] = t_hit[~mask_early]
+    t_hit = (t_low + t_high) / 2
+
+# Теперь t_hit - это честное время первого касания!
+# Используем его для расчета финального угла и координат
+x_cm_hit = v_x * t_hit
+y_cm_hit = y0 + v_y * t_hit - 0.5 * G * t_hit ** 2
+theta_final_rad = theta_0 + (omega / np.sqrt(INERTIA_K)) * t_hit
 
 omega_eff = omega / np.sqrt(INERTIA_K)
-theta_final_rad = theta_0 + omega_eff * t_flight
+theta_final_rad = theta_0 + omega_eff * t_hit
 
 # ==========================================
 # ГЕОМЕТРИЧЕСКАЯ РЕГИСТРАЦИЯ (КАК В КОДЕ 2!)
@@ -65,8 +103,8 @@ theta_final_rad = theta_0 + omega_eff * t_flight
 # и находим точку касания (минимальный Y)
 
 # Позиция центра масс в момент касания
-x_cm = v_x * t_flight
-y_cm = y0 + v_y * t_flight - 0.5 * G * t_flight ** 2
+x_cm = v_x * t_hit
+y_cm = y0 + v_y * t_hit - 0.5 * G * t_hit ** 2
 
 # Вычисляем координаты всех 4 вершин для всех бросков
 # cup_local: (4, 2), theta_final_rad: (N,)
@@ -181,8 +219,8 @@ df = pd.DataFrame({
     'omega_рад_с': np.round(omega, 4),
     'v_x_м_с': np.round(v_x, 4),
     'v_y_м_с': np.round(v_y, 4),
-    't_полета_с': np.round(t_flight, 4),
-    'x_смещение_м': np.round(v_x * t_flight, 4),
+    't_полета_с': np.round(t_hit, 4),
+    'x_смещение_м': np.round(v_x * t_hit, 4),
     'theta_final_рад': np.round(theta_final_rad, 4),
     'theta_final_град': np.round(theta_final_deg, 2),
     'angle_to_table_град': np.round(angle_to_table, 2),

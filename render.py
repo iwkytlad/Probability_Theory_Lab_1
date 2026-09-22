@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation, PillowWriter
+from matplotlib.animation import FFMpegWriter, FuncAnimation
 
 # ==========================================
 # ПАРАМЕТРЫ СТАКАНЧИКА
@@ -100,9 +100,17 @@ t_hit = (-b_c + np.sqrt(disc)) / (2 * a_c)
 
 theta_at_hit = theta0 + omega_eff * t_hit
 
-t_total = t_hit * 1.3
-N_FRAMES = 90
-T = np.linspace(0, t_total, N_FRAMES)
+# ==========================================
+# ПАРАМЕТРЫ ПЛАВНОЙ АНИМАЦИИ (60 FPS)
+# ==========================================
+TARGET_FPS = 60
+# Коэффициент замедления: 1.0 = реальное время, 0.5 = замедление в 2 раза (красивее)
+SLOW_MO_FACTOR = 0.6
+anim_duration = (t_hit * 1.3) / SLOW_MO_FACTOR
+
+# Гарантируем минимум 180 кадров, чтобы анимация была идеально плавной
+N_FRAMES = max(180, int(anim_duration * TARGET_FPS))
+T = np.linspace(0, t_hit * 1.3, N_FRAMES)
 
 # ==========================================
 # НАСТРОЙКА ГРАФИКА
@@ -280,9 +288,11 @@ def frame(i):
     return cup, cm_dot, touch_dot, touch_txt, line_bt, line_side, text_bt, text_side, *corner_markers
 
 
-anim = FuncAnimation(fig, frame, frames=N_FRAMES, interval=16, blit=True)
-output_filename = f'anim_throw_{int(row["ID"])}.gif'
-anim.save(output_filename, writer=PillowWriter(fps=60), dpi=150)
+anim = FuncAnimation(fig, frame, frames=N_FRAMES, interval=1000/TARGET_FPS, blit=True)
+output_filename = f'anim_throw_{int(row["ID"])}.mp4' # <-- Меняем расширение!
+
+writer = FFMpegWriter(fps=60, bitrate=2000)
+anim.save(output_filename, writer=writer, dpi=200)
 plt.close(fig)
 
 print(f"\n✅ Сохранено: {output_filename}")
