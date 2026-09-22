@@ -140,8 +140,10 @@ cm_dot, = ax.plot([0], [y0], 'k+', ms=15, mew=3, zorder=4)
 line_bt, = ax.plot([], [], color='#E74C3C', linewidth=3, zorder=6)
 line_side, = ax.plot([], [], color='#27AE60', linewidth=3, zorder=6)
 
-text_bt = ax.text(0, 0, '', color='#E74C3C', fontsize=14, fontweight='bold', zorder=7)
-text_side = ax.text(0, 0, '', color='#27AE60', fontsize=14, fontweight='bold', zorder=7)
+# Красивая информационная панель в правом верхнем углу (всегда читаема)
+result_text = ax.text(0.98, 0.95, 'Ожидание касания...', transform=ax.transAxes,
+                      fontsize=12, fontweight='bold', verticalalignment='top', horizontalalignment='right',
+                      bbox=dict(boxstyle='round,pad=0.6', facecolor='white', alpha=0.9, edgecolor='#2C3E50', linewidth=2))
 
 touch_dot, = ax.plot([], [], 'ro', ms=12, zorder=5)
 touch_txt = ax.annotate('', (0, 0), textcoords="offset points", xytext=(0, 25), ha='center', fontsize=14,
@@ -193,8 +195,7 @@ def frame(i):
         cup.set_xy(frozen_pts[0])
         for j in range(4):
             corner_markers[j].set_data([frozen_pts[0][j, 0]], [frozen_pts[0][j, 1]])
-        return cup, cm_dot, touch_dot, touch_txt, line_bt, line_side, text_bt, text_side, *corner_markers
-
+        return cup, cm_dot, touch_dot, touch_txt, line_bt, line_side, result_text, *corner_markers
     t = T[i]
     x = vx * t
     y = y0 + vy * t - 0.5 * G * t ** 2
@@ -260,11 +261,23 @@ def frame(i):
         line_side.set_data([P0[0], P_s_end[0]], [P0[1], P_s_end[1]])
 
         offset = 0.05
-        text_bt.set_position((P0[0] + offset * 0.7, P0[1] + 0.02))
-        text_bt.set_text(f'{ang_bt:.1f}°')
+        # === ОБНОВЛЕНИЕ ИНФО-ПАНЕЛИ ПРИ УДАРЕ ===
+        result_text.set_text(
+            f"ПЕРВОЕ КАСАНИЕ: {outcome_expected.upper()}\n\n"
+            f"Угол дна/верха: {ang_bt:.1f}°\n"
+            f"Угол бока: {ang_s:.1f}°"
+        )
 
-        text_side.set_position((P0[0] + offset * 0.7, P0[1] + 0.04))
-        text_side.set_text(f'{ang_s:.1f}°')
+        # Проверка регистрации (оставляем в консоль для отладки)
+        if ang_bt < CRITICAL_ANGLE:
+            expected = "ВЕРХ" if theta_final_deg >= 180 else "ДНО"
+        else:
+            expected = "БОК"
+
+        if expected == outcome_expected.upper():
+            print(f"✅ Регистрация: {outcome_expected} (АБСОЛЮТНО ВЕРНО)")
+        else:
+            print(f"❌ ОШИБКА: По геометрии должен быть {expected}, а в таблице {outcome_expected}")
 
         print(f"\n📐 Угол Дна/Верха (красный): {ang_bt:.1f}° (в таблице: {angle_to_table:.2f}°)")
         print(f"📐 Угол Бока (зеленый)     : {ang_s:.1f}°")
@@ -285,8 +298,7 @@ def frame(i):
     for j in range(4):
         corner_markers[j].set_data([pts[j, 0]], [pts[j, 1]])
 
-    return cup, cm_dot, touch_dot, touch_txt, line_bt, line_side, text_bt, text_side, *corner_markers
-
+    return cup, cm_dot, touch_dot, touch_txt, line_bt, line_side, result_text, *corner_markers
 
 anim = FuncAnimation(fig, frame, frames=N_FRAMES, interval=1000/TARGET_FPS, blit=True)
 output_filename = f'anim_throw_{int(row["ID"])}.mp4' # <-- Меняем расширение!
