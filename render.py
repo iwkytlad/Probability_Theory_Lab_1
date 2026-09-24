@@ -40,7 +40,7 @@ def get_cup_coords(x_pos, y_pos, angle):
 try:
     df = pd.read_csv('throws_100k_fixed.csv')
 except FileNotFoundError:
-    print("Файл 'throws_100k_fixed.csv' не найден. Запусти Код 1!")
+    print("Файл 'throws_100k_fixed.csv' не найден. Запустите generate_statistics.py")
     exit()
 
 while True:

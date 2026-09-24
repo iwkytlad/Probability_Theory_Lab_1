@@ -8,7 +8,7 @@ csv_file = 'throws_100k_fixed.csv'
 try:
     df = pd.read_csv(csv_file)
 except FileNotFoundError:
-    print(f"Ошибка: Файл '{csv_file}' не найден. Сначала запустите Код 1!")
+    print(f"Ошибка: Файл '{csv_file}' не найден. Сначала запустите generate_statistics.py")
     exit()
 
 N_total = len(df)
