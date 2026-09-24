@@ -2,9 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# ==========================================
-# ПАРАМЕТРЫ СТАКАНЧИКА (КАК В КОДЕ 2)
-# ==========================================
+# ПАРАМЕТРЫ СТАКАНЧИКА
 H = 0.13
 R_TOP = 0.04
 R_BOT = 0.025
@@ -18,10 +16,7 @@ angle_side_rad = np.arctan2(H, R_TOP - R_BOT)
 angle_side_deg = np.degrees(angle_side_rad)
 CRITICAL_ANGLE = angle_side_deg / 2  # ~41.7°
 
-print(f"📐 Критический угол: {CRITICAL_ANGLE:.2f}°")
-print(f"   (угол боковой стенки: {angle_side_deg:.2f}°)")
-
-# Геометрия стаканчика (как в Коде 2)
+# Геометрия стаканчика
 # 0: Дно-Лево, 1: Дно-Право, 2: Верх-Право, 3: Верх-Лево
 cup_local = np.array([
     [-R_BOT, -Y_CM],
@@ -30,9 +25,7 @@ cup_local = np.array([
     [-R_TOP, H - Y_CM]
 ])
 
-# ==========================================
 # ПАРАМЕТРЫ БРОСКА
-# ==========================================
 N_SIM = 100000
 Y0_MEAN, Y0_STD = 0.50, 0.05
 OMEGA_MAX = 15.0
@@ -48,9 +41,8 @@ omega = np.random.uniform(-OMEGA_MAX, OMEGA_MAX, N_SIM)
 v_x = np.clip(np.random.normal(VX_MEAN, VX_STD, N_SIM), 0.5, 3.0)
 v_y = np.clip(np.random.normal(VY_MEAN, VY_STD, N_SIM), -0.5, 1.0)
 
-# ==========================================
 # РАСЧЕТ ТРАЕКТОРИИ
-# ==========================================
+
 # 1. Сначала находим t_max - время, когда ЦМ точно ниже нуля (верхняя граница)
 a_coef, b_coef, c_coef = 0.5 * G, -v_y, Y_CM - y0
 discriminant = b_coef ** 2 - 4 * a_coef * c_coef
@@ -78,17 +70,16 @@ def get_min_y(t):
     return np.min(pts_world_y, axis=1)
 
 
-# 20 итераций дают точность ~1e-6 секунды (этого более чем достаточно)
+# 20 итераций дают точность ~1e-6 секунды
 for _ in range(20):
     min_y = get_min_y(t_hit)
-    # Если min_y <= 0, значит касание произошло РАНЬШЕ или В этот момент
+    # Если min_y <= 0, значит касание произошло либо раньше, либо в этот момент
     mask_early = min_y <= 0
     t_high[mask_early] = t_hit[mask_early]
     t_low[~mask_early] = t_hit[~mask_early]
     t_hit = (t_low + t_high) / 2
 
-# Теперь t_hit - это честное время первого касания!
-# Используем его для расчета финального угла и координат
+# t_hit - время первого касания
 x_cm_hit = v_x * t_hit
 y_cm_hit = y0 + v_y * t_hit - 0.5 * G * t_hit ** 2
 theta_final_rad = theta_0 + (omega / np.sqrt(INERTIA_K)) * t_hit
@@ -96,9 +87,8 @@ theta_final_rad = theta_0 + (omega / np.sqrt(INERTIA_K)) * t_hit
 omega_eff = omega / np.sqrt(INERTIA_K)
 theta_final_rad = theta_0 + omega_eff * t_hit
 
-# ==========================================
-# ГЕОМЕТРИЧЕСКАЯ РЕГИСТРАЦИЯ (КАК В КОДЕ 2!)
-# ==========================================
+# ГЕОМЕТРИЧЕСКАЯ РЕГИСТРАЦИЯ
+
 # Для каждого броска вычисляем координаты 4 вершин в момент t_hit
 # и находим точку касания (минимальный Y)
 
@@ -108,10 +98,9 @@ y_cm = y0 + v_y * t_hit - 0.5 * G * t_hit ** 2
 
 # Вычисляем координаты всех 4 вершин для всех бросков
 # cup_local: (4, 2), theta_final_rad: (N,)
-# Используем broadcasting
 
-cos_theta = np.cos(theta_final_rad)  # (N,)
-sin_theta = np.sin(theta_final_rad)  # (N,)
+cos_theta = np.cos(theta_final_rad)
+sin_theta = np.sin(theta_final_rad)
 
 # Матрица поворота для каждого броска: (N, 2, 2)
 R = np.zeros((N_SIM, 2, 2))
@@ -127,7 +116,6 @@ R[:, 1, 1] = cos_theta
 rotated = np.einsum('nij,kj->nki', R, cup_local)
 
 # Смещаем к позиции центра масс
-# x_cm, y_cm: (N,)
 pts_world = rotated.copy()
 pts_world[:, :, 0] += x_cm[:, np.newaxis]
 pts_world[:, :, 1] += y_cm[:, np.newaxis]
@@ -181,13 +169,6 @@ for idx_val in range(4):
     ang_bt[mask] = ang_bt_val
     ang_s[mask] = ang_s_val
 
-# РЕГИСТРАЦИЯ ИСХОДА (ЛОГИКА ИЗ КОДА 2)
-# if ang_bt < CRITICAL_ANGLE:
-#     if точка касания 0 или 1 (дно) -> ДНО
-#     if точка касания 2 или 3 (верх) -> ВЕРХ
-# else:
-#     БОК
-
 is_vertical = ang_bt < CRITICAL_ANGLE
 is_horizontal = ang_bt >= CRITICAL_ANGLE
 
@@ -209,9 +190,8 @@ theta_final_deg = np.where(theta_final_deg < 0, theta_final_deg + 360, theta_fin
 angle_to_table = theta_final_deg % 180
 angle_to_table = np.where(angle_to_table > 90, 180 - angle_to_table, angle_to_table)
 
-# ==========================================
 # СОЗДАНИЕ ТАБЛИЦЫ
-# ==========================================
+
 df = pd.DataFrame({
     'ID': np.arange(1, N_SIM + 1),
     'y0_м': np.round(y0, 4),
@@ -224,26 +204,21 @@ df = pd.DataFrame({
     'theta_final_рад': np.round(theta_final_rad, 4),
     'theta_final_град': np.round(theta_final_deg, 2),
     'angle_to_table_град': np.round(angle_to_table, 2),
-    'ang_bt_град': np.round(ang_bt, 2),  # Угол стороны дно/верх (как в Коде 2)
-    'ang_s_град': np.round(ang_s, 2),  # Угол стороны бок (как в Коде 2)
-    'touch_idx': min_y_idx,  # Индекс точки касания (как в Коде 2)
+    'ang_bt_град': np.round(ang_bt, 2),  # Угол стороны дно/верх
+    'ang_s_град': np.round(ang_s, 2),  # Угол стороны бок
+    'touch_idx': min_y_idx,  # Индекс точки касания
     'Исход': outcomes
 })
 
 csv_file = 'throws_100k_fixed.csv'
 df.to_csv(csv_file, index=False, encoding='utf-8-sig', float_format='%.4f')
 
-print(f"\n✅ Сохранено: {csv_file}")
-print(f"Строк: {len(df)}")
-
 # Статистика
-print("\n Распределение исходов:")
 stats = df['Исход'].value_counts()
 for outcome in ['Дно', 'Бок', 'Верх']:
     count = stats.get(outcome, 0)
     pct = count / N_SIM * 100
     print(f"  {outcome}: {count} ({pct:.1f}%)")
-
 
 # Визуализация
 fig, axes = plt.subplots(2, 2, figsize=(12, 10))
@@ -273,5 +248,4 @@ axes[1, 1].grid(True, alpha=0.3)
 
 plt.tight_layout()
 plt.savefig('distributions.png', dpi=300)
-print("\n✅ Графики сохранены")
 plt.show()

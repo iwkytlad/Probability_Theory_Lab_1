@@ -3,9 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FFMpegWriter, FuncAnimation
 
-# ==========================================
 # ПАРАМЕТРЫ СТАКАНЧИКА
-# ==========================================
+
 H = 0.13
 R_TOP = 0.04
 R_BOT = 0.025
@@ -37,18 +36,12 @@ def get_cup_coords(x_pos, y_pos, angle):
     return rotated
 
 
-# ==========================================
 # ВВОД И ДАННЫЕ
-# ==========================================
 try:
     df = pd.read_csv('throws_100k_fixed.csv')
 except FileNotFoundError:
-    print("❌ Файл 'throws_100k_fixed.csv' не найден. Запусти Код 1!")
+    print("Файл 'throws_100k_fixed.csv' не найден. Запусти Код 1!")
     exit()
-
-print("\n" + "=" * 70)
-print("ДЕМОНСТРАЦИЯ АНИМАЦИИ БРОСКА (ИСПРАВЛЕНО)")
-print("=" * 70)
 
 while True:
     try:
@@ -68,25 +61,8 @@ theta_final_deg = np.degrees(row['theta_final_рад'])
 angle_to_table = row['angle_to_table_град']
 outcome_expected = row['Исход']
 
-print("\n" + "=" * 70)
-print(f"📊 ДАННЫЕ ИСПЫТАНИЯ № {int(row['ID'])}")
-print("=" * 70)
-print(f"🎯 ОЖИДАЕМЫЙ ИСХОД : {outcome_expected.upper()}")
-print("-" * 70)
-print(f"📏 Высота броска (y0)      : {row['y0_м']:.4f} м")
-print(f"🔄 Нач. угол (θ0)          : {theta_deg:.2f}°")
-print(f"🌀 Угл. скорость (ω)       : {row['omega_рад_с']:.4f} рад/с")
-print(f"➡️ Гориз. скорость (Vx)    : {row['v_x_м_с']:.4f} м/с")
-print(f"⬆️ Верт. скорость (Vy)     : {row['v_y_м_с']:.4f} м/с")
-print(f"📐 Угол при касании (θf)   : {theta_final_deg:.2f}°")
-print(f"📐 Угол дна/верха к столу  : {angle_to_table:.2f}°")
-print(f"📐 Критический порог       : {CRITICAL_ANGLE:.2f}°")
-print("=" * 70)
-print("⏳ Генерация анимации...")
-
-# ==========================================
 # РАСЧЕТ ТРАЕКТОРИИ
-# ==========================================
+
 y0 = row['y0_м']
 theta0 = row['theta_0_рад']
 omega = row['omega_рад_с']
@@ -100,11 +76,9 @@ t_hit = (-b_c + np.sqrt(disc)) / (2 * a_c)
 
 theta_at_hit = theta0 + omega_eff * t_hit
 
-# ==========================================
-# ПАРАМЕТРЫ ПЛАВНОЙ АНИМАЦИИ (60 FPS)
-# ==========================================
+# ПАРАМЕТРЫ ПЛАВНОЙ АНИМАЦИИ
+
 TARGET_FPS = 60
-# Коэффициент замедления: 1.0 = реальное время, 0.5 = замедление в 2 раза (красивее)
 SLOW_MO_FACTOR = 0.6
 anim_duration = (t_hit * 1.3) / SLOW_MO_FACTOR
 
@@ -112,9 +86,8 @@ anim_duration = (t_hit * 1.3) / SLOW_MO_FACTOR
 N_FRAMES = max(180, int(anim_duration * TARGET_FPS))
 T = np.linspace(0, t_hit * 1.3, N_FRAMES)
 
-# ==========================================
 # НАСТРОЙКА ГРАФИКА
-# ==========================================
+
 fig, ax = plt.subplots(figsize=(14, 9))
 
 ax.axhline(0, color='#2C3E50', linewidth=4, zorder=1)
@@ -140,10 +113,11 @@ cm_dot, = ax.plot([0], [y0], 'k+', ms=15, mew=3, zorder=4)
 line_bt, = ax.plot([], [], color='#E74C3C', linewidth=3, zorder=6)
 line_side, = ax.plot([], [], color='#27AE60', linewidth=3, zorder=6)
 
-# Красивая информационная панель в правом верхнем углу (всегда читаема)
+# Информационная панель в правом верхнем углу
 result_text = ax.text(0.98, 0.95, 'Ожидание касания...', transform=ax.transAxes,
                       fontsize=12, fontweight='bold', verticalalignment='top', horizontalalignment='right',
-                      bbox=dict(boxstyle='round,pad=0.6', facecolor='white', alpha=0.9, edgecolor='#2C3E50', linewidth=2))
+                      bbox=dict(boxstyle='round,pad=0.6', facecolor='white', alpha=0.9, edgecolor='#2C3E50',
+                                linewidth=2))
 
 touch_dot, = ax.plot([], [], 'ro', ms=12, zorder=5)
 touch_txt = ax.annotate('', (0, 0), textcoords="offset points", xytext=(0, 25), ha='center', fontsize=14,
@@ -224,9 +198,8 @@ def frame(i):
 
         touch_dot.set_data([P0[0]], [0])
         touch_txt.xy = (P0[0], 0.06)
-        touch_txt.set_text(f'✓ ПЕРВОЕ КАСАНИЕ: {outcome_expected.upper()}!')
+        touch_txt.set_text(f'ПЕРВОЕ КАСАНИЕ: {outcome_expected.upper()}!')
 
-        # === ПРАВИЛЬНАЯ ГЕОМЕТРИЯ ===
         # Определяем векторы Дна/Верха и Бока в зависимости от того, какая вершина коснулась стола
         if idx == 0:  # Коснулось Дно-Лево
             P_bt = pts_hit[1]  # Дно
@@ -261,26 +234,11 @@ def frame(i):
         line_side.set_data([P0[0], P_s_end[0]], [P0[1], P_s_end[1]])
 
         offset = 0.05
-        # === ОБНОВЛЕНИЕ ИНФО-ПАНЕЛИ ПРИ УДАРЕ ===
         result_text.set_text(
             f"ПЕРВОЕ КАСАНИЕ: {outcome_expected.upper()}\n\n"
             f"Угол дна/верха: {ang_bt:.1f}°\n"
             f"Угол бока: {ang_s:.1f}°"
         )
-
-        # Проверка регистрации (оставляем в консоль для отладки)
-        if ang_bt < CRITICAL_ANGLE:
-            expected = "ВЕРХ" if theta_final_deg >= 180 else "ДНО"
-        else:
-            expected = "БОК"
-
-        if expected == outcome_expected.upper():
-            print(f"✅ Регистрация: {outcome_expected} (АБСОЛЮТНО ВЕРНО)")
-        else:
-            print(f"❌ ОШИБКА: По геометрии должен быть {expected}, а в таблице {outcome_expected}")
-
-        print(f"\n📐 Угол Дна/Верха (красный): {ang_bt:.1f}° (в таблице: {angle_to_table:.2f}°)")
-        print(f"📐 Угол Бока (зеленый)     : {ang_s:.1f}°")
 
         # Проверка регистрации
         if ang_bt < CRITICAL_ANGLE:
@@ -288,10 +246,11 @@ def frame(i):
         else:
             expected = "БОК"
 
-        if expected == outcome_expected.upper():
-            print(f"✅ Регистрация: {outcome_expected} (АБСОЛЮТНО ВЕРНО)")
+        # Проверка регистрации
+        if ang_bt < CRITICAL_ANGLE:
+            expected = "ВЕРХ" if theta_final_deg >= 180 else "ДНО"
         else:
-            print(f"❌ ОШИБКА: По геометрии должен быть {expected}, а в таблице {outcome_expected}")
+            expected = "БОК"
 
     cup.set_xy(pts)
     cm_dot.set_data([x], [y])
@@ -300,12 +259,10 @@ def frame(i):
 
     return cup, cm_dot, touch_dot, touch_txt, line_bt, line_side, result_text, *corner_markers
 
-anim = FuncAnimation(fig, frame, frames=N_FRAMES, interval=1000/TARGET_FPS, blit=True)
-output_filename = f'anim_throw_{int(row["ID"])}.mp4' # <-- Меняем расширение!
+
+anim = FuncAnimation(fig, frame, frames=N_FRAMES, interval=1000 / TARGET_FPS, blit=True)
+output_filename = f'anim_throw_{int(row["ID"])}.mp4'
 
 writer = FFMpegWriter(fps=60, bitrate=2000)
 anim.save(output_filename, writer=writer, dpi=200)
 plt.close(fig)
-
-print(f"\n✅ Сохранено: {output_filename}")
-print(f"📊 Кадров: {N_FRAMES} | FPS: 60 | Длительность: {N_FRAMES / 60:.1f} сек")
